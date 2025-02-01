@@ -1,16 +1,59 @@
+# Define repository owner and name
+$repoOwner = "pschilly"
+$repoName = "gtfo-liveries"
 
+# Fetch repository metadata from GitHub API to get the default branch
+$repoApiUrl = "https://api.github.com/repos/$repoOwner/$repoName"
+$repoData = Invoke-RestMethod -Uri $repoApiUrl -Headers @{"User-Agent"="PowerShell"}
+$defaultBranch = $repoData.default_branch
 
-#Insert DCS Livery Repo
-$livGit = 'https://github.com/pschilly/gtfo-liveries/archive/refs/heads/main.zip'
+# Construct the latest branch ZIP URL dynamically
+$zipUrl = "https://github.com/$repoOwner/$repoName/archive/refs/heads/$defaultBranch.zip"
 
-Write-Host "Downloading from Git"
+# Set up local paths
+$downloadZip = ".\DCS_Liveries.zip"
+$extractedFolder = ".\$repoName-$defaultBranch"
+$finalFolder = ".\DCS_Liveries"
+
+# Ensure no previous extraction exists (to avoid conflicts)
+if (Test-Path $extractedFolder) {
+    Write-Host "Removing previous extracted files..."
+    Remove-Item -Path $extractedFolder -Recurse -Force
+}
+
+if (Test-Path $finalFolder) {
+    Write-Host "Removing previous installation folder..."
+    Remove-Item -Path $finalFolder -Recurse -Force
+}
+
+# Download the latest ZIP
+Write-Host "Downloading from GitHub (Branch: $defaultBranch)"
 $ProgressPreference = 'SilentlyContinue'
-Invoke-WebRequest $livGit -OutFile .\DCS_Liveries.zip
-Expand-Archive .\DCS_Liveries.zip .\
-Rename-Item .\gtfo-liveries-main .\DCS_Liveries #May need to adjust for your repo name
-Remove-Item .\DCS_Liveries.zip
-Remove-Item .\DCS_Liveries\Liveries\README.md
-Copy-Item -Path ".\DCS_Liveries\Liveries\*" -Destination "~\Saved Games\DCS\Liveries" -Recurse -Force
-Remove-Item .\DCS_Liveries -Recurse
-Write-Host "Liveries Installed/Updated"
+Invoke-WebRequest -Uri $zipUrl -OutFile $downloadZip
+
+# Extract ZIP with overwrite protection
+Write-Host "Extracting files..."
+Expand-Archive -Path $downloadZip -DestinationPath .\ -Force
+
+# Rename extracted folder to a standard name
+Rename-Item -Path $extractedFolder -NewName $finalFolder
+
+# Remove ZIP file after extraction
+Remove-Item $downloadZip
+
+# Remove README if it exists
+$readmePath = "$finalFolder\Liveries\README.md"
+if (Test-Path $readmePath) {
+    Remove-Item $readmePath -Force
+}
+
+# Copy liveries to Saved Games
+$liveriesPath = "$env:USERPROFILE\Saved Games\DCS\Liveries"
+Write-Host "Copying liveries..."
+Copy-Item -Path "$finalFolder\Liveries\*" -Destination $liveriesPath -Recurse -Force
+
+# Clean up extracted folder
+Remove-Item $finalFolder -Recurse -Force
+
+Write-Host "Liveries Installed/Updated Successfully!"
 pause
